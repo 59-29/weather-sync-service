@@ -2,8 +2,10 @@ from celery import shared_task
 from django.utils import timezone
 from datetime import datetime, timezone as dt_timezone
 import requests
-
+import logging
 from .models import CityWeather
+
+logger = logging.getLogger(__name__)
 
 CITIES = [
     {"city_name": "Paris", "latitude": 48.8566, "longitude": 2.3522},
@@ -25,12 +27,23 @@ def parse_iso_datetime(value: str):
     except ValueError:
         return None
 
-@shared_task
-def sync_weather():
+@shared_task(
+    bind=True,
+    autoretry_for=(requests.RequestException,),
+    retry_backoff=True,
+    retry_backoff_max=300,
+    retry_jitter=True,
+    retry_kwargs={"max_retries": 5},
+)
+def sync_weather(self):
     results = {"updated": 0, "failed": 0}
+
+    logger.info("Weather sync started for %d cities", len(CITIES))
 
     for c in CITIES:
         try:
+            logger.info("Fetching weather for city=%s", c["city_name"])
+
             resp = requests.get(
                 OPEN_METEO_URL,
                 params={
@@ -41,6 +54,7 @@ def sync_weather():
                 timeout=10,
             )
             resp.raise_for_status()
+
             payload = resp.json()
             cw = payload.get("current_weather") or {}
 
@@ -58,10 +72,23 @@ def sync_weather():
                     "synced_at": timezone.now(),
                 },
             )
+
             results["updated"] += 1
+            logger.info(
+                "Synced city=%s temp=%s windspeed=%s",
+                c["city_name"],
+                cw.get("temperature"),
+                cw.get("windspeed"),
+            )
 
-        except requests.RequestException:
+        except requests.RequestException as e:
             results["failed"] += 1
-            continue
+            logger.warning(
+                "Failed syncing city=%s error=%s",
+                c["city_name"],
+                str(e),
+            )
+            raise
 
-    return results
+    logger.info("Weather sync finished: %s", results)
+    return results 
