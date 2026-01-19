@@ -44,12 +44,25 @@ pip install -r requirements.txt
 
 ---
 
-### 3. Environment variables
-
-Create a `.env` file using the provided example:
+### 3. Environment variables (Required)
 
 ```bash
-cp .env.example .env
+export DJANGO_SECRET_KEY="change-me"
+export DEBUG="1"
+
+export POSTGRES_DB="weatherdb"
+export POSTGRES_USER="weatheruser"
+export POSTGRES_PASSWORD="weatherpass"
+export POSTGRES_HOST="localhost"
+export POSTGRES_PORT="5432"
+
+export CELERY_BROKER_URL="redis://localhost:6379/0"
+export CELERY_RESULT_BACKEND="redis://localhost:6379/0"
+
+export CORS_ALLOWED_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
+export CSRF_TRUSTED_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
+
+export PAGE_SIZE="10"
 ```
 
 ---
@@ -71,7 +84,7 @@ python manage.py migrate
 
 ---
 
-## Running the Application
+## Run the Application
 
 ### Terminal 1 — Start Django server
 
@@ -109,6 +122,17 @@ The request returns immediately.
 
 Returns the latest weather data for all cities.
 
+**Example:**
+
+```json
+{
+  "count": 4,
+  "next": null,
+  "previous": null,
+  "results": [...]
+}
+```
+
 ---
 
 ### GET `/api/weather/<id>/`
@@ -131,8 +155,11 @@ pytest -q
 
 * Each city has exactly one database record without duplicates.
 * Re-syncing updates existing records.
+* Celery tasks per city for concurrency.
+* Database indexes for better/efficient lookups
 * If a single city fails during sync, the other cities will continue.
 * The full Open-Meteo response is stored for debugging.
+* CORS and CRSF configuration.
 
 ---
 
