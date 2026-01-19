@@ -2,7 +2,7 @@ from unittest.mock import patch
 from django.urls import resolve
 
 def test_sync_endpoint_starts_task(client):
-    with patch("weather.views.sync_weather.delay") as mocked_delay:
+    with patch("weather.views.sync_all_weather.delay") as mocked_delay:
         mocked_delay.return_value.id = "abc123"
 
         resp = client.post("/api/sync/")
